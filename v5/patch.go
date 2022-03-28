@@ -24,10 +24,14 @@ var (
 	// AccumulatedCopySizeLimit limits the total size increase in bytes caused by
 	// "copy" operations in a patch.
 	AccumulatedCopySizeLimit int64 = 0
-	startObject                    = json.Delim('{')
-	endObject                      = json.Delim('}')
-	startArray                     = json.Delim('[')
-	endArray                       = json.Delim(']')
+	// SupportArrayPath allows you to use patches where the path is represented
+	// by an array of items rather than a string. Useful when working with ImmerJS
+	// https://immerjs.github.io/immer/patches/
+	SupportArrayPath bool = false
+	startObject           = json.Delim('{')
+	endObject             = json.Delim('}')
+	startArray            = json.Delim('[')
+	endArray              = json.Delim(']')
 )
 
 var (
@@ -417,7 +421,18 @@ func (o Operation) Path() (string, error) {
 
 		err := json.Unmarshal(*obj, &op)
 
-		if err != nil {
+		if err != nil && SupportArrayPath {
+			var items []interface{}
+			err2 := json.Unmarshal(*obj, &items)
+			if err2 == nil {
+				var result bytes.Buffer
+				for _, item := range items {
+					result.WriteString("/")
+					result.WriteString(fmt.Sprint(item))
+				}
+				return result.String(), nil
+			}
+
 			return "unknown", err
 		}
 
